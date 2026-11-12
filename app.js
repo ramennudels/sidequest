@@ -26,11 +26,19 @@ function setTab(tabName, btnEl) {
 }
 
 function handleCoverError(img, appId, title) {
-  if (!img.dataset.triedCapsule) {
-    img.dataset.triedCapsule = "1";
-    img.src = `https://steamstatic.com{appId}/capsule_616x353.jpg`;
+  const step = parseInt(img.dataset.fallbackStep || "0", 10);
+  const fallbacks = [
+    `https://steamstatic.com{appId}/header.jpg`,
+    `https://steamstatic.com{appId}/capsule_616x353.jpg`,
+    `https://steamstatic.com{appId}/capsule_616x353.jpg`,
+  ];
+
+  if (step < fallbacks.length) {
+    img.dataset.fallbackStep = String(step + 1);
+    img.src = fallbacks[step];
     return;
   }
+
   const safeTitle = (title || "Sidequest Deal").replace(/[<>&"']/g, "");
   const svg = `<svg xmlns="http://w3.org" width="460" height="215" viewBox="0 0 460 215">
     <defs>
@@ -47,6 +55,7 @@ function handleCoverError(img, appId, title) {
   img.onerror = null;
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
+
 
 function escapeAttr(str) {
   return (str || "").replace(/'/g, "").replace(/"/g, "");
