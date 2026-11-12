@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIDEQUEST — Every Great Adventure Starts With a Sidequest</title>
+  <link rel="preconnect" href="https://googleapis.com">
+  <link href="https://googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="world-backdrop">
+  <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" xmlns="http://w3.org">
+    <defs>
+      <linearGradient id="sunsetPortal" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#e85d04"/>
+        <stop offset="55%" stop-color="#f48c06"/>
+        <stop offset="100%" stop-color="#ffba08"/>
+      </linearGradient>
+      <linearGradient id="streamWater" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1b3a4b"/>
+        <stop offset="100%" stop-color="#0b1d26"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Deep Twilight Forest Shadow Base -->
+    <rect width="320" height="180" fill="#120b14"/>
+
+    <!-- Glowing Sunset Opening -->
+    <circle cx="160" cy="86" r="56" fill="url(#sunsetPortal)"/>
+
+    <!-- Distant Misty Mountain Ridges & Pines -->
+    <polygon points="96,112 134,74 160,104 186,76 224,112" fill="#3a4a63"/>
+    <polygon points="118,112 146,84 174,112" fill="#263347"/>
+    <g fill="#192333">
+      <polygon points="126,112 132,90 138,112"/>
+      <polygon points="139,112 145,86 151,112"/>
+      <polygon points="169,112 175,88 181,112"/>
+      <polygon points="182,112 188,92 194,112"/>
+    </g>
+
+    <!-- Emerald Meadow Bank -->
+    <path d="M88,116 Q160,106 232,116 L232,134 L88,134 Z" fill="#2d6a4f"/>
+    <path d="M96,118 Q160,111 224,118 L224,126 L96,126 Z" fill="#52b788"/>
+
+    <!-- Wooden Footbridge -->
+    <rect x="130" y="121" width="60" height="4" fill="#7f4f24"/>
+    <rect x="130" y="117" width="60" height="2" fill="#b07d4f"/>
+    <rect x="136" y="117" width="3" height="8" fill="#582f0e"/>
+    <rect x="158" y="117" width="4" height="8" fill="#582f0e"/>
+    <rect x="181" y="117" width="3" height="8" fill="#582f0e"/>
+
+    <!-- Reflecting Stream & River Boulders -->
+    <path d="M82,134 L238,134 L270,180 L50,180 Z" fill="url(#streamWater)"/>
+    <path d="M134,134 L186,134 L204,180 L116,180 Z" fill="#e85d04" opacity="0.65"/>
+    <g fill="#ffd166">
+      <rect x="148" y="148" width="24" height="2"/>
+      <rect x="142" y="156" width="36" height="3"/>
+      <rect x="136" y="165" width="48" height="3"/>
+      <rect x="144" y="173" width="32" height="2"/>
+    </g>
+    <ellipse cx="118" cy="144" rx="16" ry="9" fill="#1e3d4f"/>
+    <ellipse cx="202" cy="146" rx="18" ry="9" fill="#1e3d4f"/>
+    <ellipse cx="160" cy="176" rx="22" ry="7" fill="#162e3d"/>
+
+    <!-- Framing Autumn Tree Trunks -->
+    <rect x="74" y="8" width="12" height="136" fill="#6b2710"/>
+    <rect x="78" y="8" width="4" height="136" fill="#c2410c"/>
+    <rect x="234" y="8" width="12" height="136" fill="#6b2710"/>
+    <rect x="238" y="8" width="4" height="136" fill="#c2410c"/>
+
+    <!-- Outer Woodland Silhouettes -->
+    <g fill="#1c111d">
+      <polygon points="18,160 36,92 54,160"/>
+      <polygon points="266,160 284,88 302,160"/>
+      <rect x="0" y="152" width="95" height="28"/>
+      <rect x="225" y="152" width="95" height="28"/>
+    </g>
+
+    <!-- Layered Autumn Foliage Canopy Arch -->
+    <g fill="#7c2d12">
+      <ellipse cx="80" cy="22" rx="52" ry="15"/>
+      <ellipse cx="240" cy="22" rx="52" ry="15"/>
+      <ellipse cx="116" cy="42" rx="40" ry="12"/>
+      <ellipse cx="204" cy="42" rx="40" ry="12"/>
+      <ellipse cx="160" cy="30" rx="54" ry="13"/>
+    </g>
+    <g fill="#d94e1f">
+      <ellipse cx="84" cy="18" rx="36" ry="9"/>
+      <ellipse cx="236" cy="18" rx="36" ry="9"/>
+      <ellipse cx="118" cy="38" rx="26" ry="7"/>
+      <ellipse cx="202" cy="38" rx="26" ry="7"/>
+      <ellipse cx="160" cy="26" rx="34" ry="7"/>
+    </g>
+    <g fill="#f48c06">
+      <rect x="64" y="14" width="24" height="3"/>
+      <rect x="224" y="14" width="24" height="3"/>
+      <rect x="146" y="23" width="28" height="3"/>
+    </g>
+  </svg>
+</div>
+
+
+
+<header class="campfire-header">
+  <div class="nav-bar">
+    <div class="brand-cluster">
+      <svg class="campfire-icon" viewBox="0 0 16 16" xmlns="http://w3.org">
+        <rect x="3" y="12" width="10" height="2" fill="#7f4f24"/>
+        <rect x="4" y="11" width="8" height="2" fill="#582f0e"/>
+        <g class="flame-anim">
+          <rect x="7" y="3" width="2" height="2" fill="#ff7b00"/>
+          <rect x="6" y="5" width="4" height="3" fill="#ff9e00"/>
+          <rect x="5" y="8" width="6" height="3" fill="#ff5400"/>
+          <rect x="7" y="7" width="2" height="4" fill="#ffe66d"/>
+        </g>
+      </svg>
+      <div class="brand-title">SIDE<span>QUEST</span></div>
+      <div class="slogan-badge">Every Great Adventure Starts With a Sidequest</div>
+    </div>
+
+    <div class="nav-controls">
+      <input type="text" id="searchInput" placeholder="Search games (Ctrl+K)..." oninput="renderStorefront()" />
+      <input type="number" id="appIdInput" placeholder="Steam App ID (e.g. 413150)" style="width: 190px;" />
+      <button class="btn-pixel" onclick="trackGame()">+ Track Quest</button>
+      <button class="btn-pixel btn-ember" onclick="syncDiscover()">Sync Top Deals</button>
+      <label class="btn-pixel" style="cursor:pointer;">
+        Import Reseller CSV
+        <input type="file" id="feedUpload" accept=".csv,.json" style="display:none;" onchange="uploadResellerFeed(event)" />
+      </label>
+      <button class="btn-pixel" onclick="toggleRealmTheme()" id="themeToggleBtn">☀ Sunlit Trail</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="status-scroll carved-stone">
+    <span id="statusText">Scouting woodland merchants for active Steam keys &amp; gifts...</span>
+    <span class="policy-pill">KEYS &amp; GIFTS ONLY • NO ACCOUNTS</span>
+  </div>
+
+  <div class="filter-bar">
+    <div class="tab-group">
+      <button class="tab-btn active" onclick="setTab('all', this)">All Quests</button>
+      <button class="tab-btn" onclick="setTab('sale', this)">On Sale Now</button>
+      <button class="tab-btn" onclick="setTab('under20', this)">Under $20 Loot</button>
+    </div>
+
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span style="font-size:12px; color:var(--text-light); text-shadow:1px 1px 0 #000;">Merchant Path:</span>
+      <select id="sellerFilter" onchange="renderStorefront()">
+        <option value="all">All Merchants (Official + Resellers)</option>
+        <option value="Official Store">Official Stores Only</option>
+        <option value="Key Reseller">Key Resellers Only</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="heroContainer"></div>
+  <div class="section-heading" id="sectionHeading">🌲 FEATURED WOODLAND DEALS</div>
+  <div id="dealsContainer"></div>
+</div>
+
+<div class="modal-backdrop" id="dealModal" onclick="closeModalOnBackdrop(event)">
+  <div class="modal-panel carved-stone">
+    <button class="modal-close" onclick="closeModal()">X CLOSE</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
