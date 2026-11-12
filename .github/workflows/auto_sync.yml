@@ -1,0 +1,11 @@
+name: Sidequest 6-Hour Price Sync
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Deal Discovery
+        run: curl -X POST "https://onrender.com"
