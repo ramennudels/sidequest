@@ -73,6 +73,7 @@ function handleCoverError(img, appId, title) {
   img.src = canvas.toDataURL("image/png");
 }
 
+
 function escapeAttr(str) {
   return (str || "").replace(/'/g, "").replace(/"/g, "");
 }
@@ -274,12 +275,21 @@ async function openDealModal(appId) {
   body.innerHTML = `<p>Loading live store comparison...</p>`;
 
   try {
-    const [dealRes, histRes] = await Promise.all([
-      fetch(`${API_BASE}/api/deals/${appId}`),
-      fetch(`${API_BASE}/api/history/${appId}`),
-    ]);
-    const deal = await dealRes.json();
-    const histData = await histRes.json();
+    let deal = allDeals.find((d) => d.app_id === appId);
+    let histData = { history: [] };
+
+    try {
+      const [dealRes, histRes] = await Promise.all([
+        fetch(`${API_BASE}/api/deals/${appId}`),
+        fetch(`${API_BASE}/api/history/${appId}`),
+      ]);
+      if (dealRes.ok) deal = await dealRes.json();
+      if (histRes.ok) histData = await histRes.json();
+    } catch (netErr) {
+      // Use cached deal data if live fetch times out
+    }
+
+    if (!deal) throw new Error("Deal not found");
 
     const rows = (deal.active_offers || []).map((o) => {
       const targetUrl = o.url || o.store_url || "https://steampowered.com" + deal.app_id + "/";
@@ -294,14 +304,19 @@ async function openDealModal(appId) {
       `;
     }).join("");
 
+    const lowPrice = deal.historical_low ? deal.historical_low.price.toFixed(2) : "0.00";
+    const lowStore = deal.historical_low ? deal.historical_low.store : "Steam";
+    const lowDate = deal.historical_low ? deal.historical_low.date_hit : "N/A";
+    const nextSale = deal.next_sale_prediction ? deal.next_sale_prediction.estimated_date : "Upcoming";
+
     body.innerHTML = `
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
         <img src="${getCoverUrl(deal)}" alt="${escapeAttr(deal.title)}" style="width:180px;border-radius:8px;border:1px solid var(--border-subtle);" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
         <div>
           <h2 style="font-size:22px;font-weight:800;margin-bottom:6px;">${deal.title}</h2>
           <p style="font-size:13px;color:var(--text-secondary);">
-            Historical Low: <b style="color:var(--gold-accent);">$${deal.historical_low.price.toFixed(2)}</b> (${deal.historical_low.store} on ${deal.historical_low.date_hit})<br>
-            Next Steam Seasonal Sale Estimate: <b>${deal.next_sale_prediction.estimated_date}</b>
+            Historical Low: <b style="color:var(--gold-accent);">$${lowPrice}</b> (${lowStore} on ${lowDate})<br>
+            Next Steam Seasonal Sale Estimate: <b>${nextSale}</b>
           </p>
         </div>
       </div>
