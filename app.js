@@ -1,4 +1,4 @@
-const API_BASE = "https://sidequest-0so9.onrender.com";
+const API_BASE = "https://onrender.com";
 let allDeals = [];
 let activeTab = "all";
 
@@ -73,10 +73,6 @@ function handleCoverError(img, appId, title) {
   img.src = canvas.toDataURL("image/png");
 }
 
-  img.onerror = null;
-  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-}
-
 function escapeAttr(str) {
   return (str || "").replace(/'/g, "").replace(/"/g, "");
 }
@@ -102,6 +98,7 @@ async function loadDeals() {
     statusEl.innerHTML = `<span style="color:#ef4444;font-weight:700;">Backend offline</span> — Check Render server status or refresh in 30 seconds.`;
   }
 }
+
 function renderStorefront() {
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
   const sellerType = document.getElementById("sellerFilter").value;
@@ -285,7 +282,7 @@ async function openDealModal(appId) {
     const histData = await histRes.json();
 
     const rows = (deal.active_offers || []).map((o) => {
-      const targetUrl = o.url || o.store_url || `https://steampowered.com{deal.app_id}/`;
+      const targetUrl = o.url || o.store_url || "https://steampowered.com" + deal.app_id + "/";
       return `
         <tr>
           <td><strong>${o.store}</strong><br><span style="font-size:11px;color:var(--text-secondary);">${o.store_type}</span></td>
@@ -336,6 +333,7 @@ async function openDealModal(appId) {
     body.innerHTML = `<p style="color:#ef4444;">Failed to load offer details.</p>`;
   }
 }
+
 function closeModal() {
   document.getElementById("dealModal").classList.remove("open");
 }
