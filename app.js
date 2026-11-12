@@ -40,16 +40,6 @@ const fallbacks = [
   "https://steamstatic.com" + appId + "/capsule_616x353.jpg"
 ];
 
-
-  if (step < fallbacks.length) {
-    img.dataset.fallbackStep = String(step + 1);
-    img.src = fallbacks[step];
-    return;
-  }
-
-  const safeTitle = (title || "Sidequest Deal").replace(/[<>&"']/g, "");
-  const svg = `<svg xmlns="http://w3.org" width="460" height="215" viewBox="0 0 460 215">
-    <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stop-color="#1a1d26"/>
         <stop offset="100%" stop-color="#090a0e"/>
@@ -59,7 +49,7 @@ const fallbacks = [
     <rect x="1" y="1" width="458" height="213" fill="none" stroke="#ef4444" stroke-width="2" stroke-opacity="0.5"/>
     <text x="230" y="96" fill="#ef4444" font-family="Inter, sans-serif" font-size="14" font-weight="800" text-anchor="middle" letter-spacing="3">🔥 SIDEQUEST</text>
     <text x="230" y="128" fill="#f8fafc" font-family="Inter, sans-serif" font-size="18" font-weight="700" text-anchor="middle">${safeTitle.slice(0, 34)}</text>
-  </svg>`;
+const svg = `<svg xmlns="http://w3.org" width="460" height="215" viewBox="0 0 460 215">
   img.onerror = null;
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
