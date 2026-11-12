@@ -486,15 +486,10 @@ def analyze_game_deals(app_id: int):
     return {
         "app_id": app_id,
         "title": title,
-        "header_image": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{app_id}/header.jpg",
+        "header_image": f"https://steamstatic.com{app_id}/header.jpg",
         "cheapest_current": cheapest_current,
         "active_offers": enriched_offers,
-        "historical_low": {
-            "price": hist_low[0] if hist_low else None,
-            "store": hist_low[1] if hist_low else None,
-            "delivery_type": hist_low[2] if hist_low else None,
-            "date_hit": hist_low[3] if hist_low else None,
-        },
+        "historical_low": historical_low,
         "next_sale_prediction": {
             "estimated_date": next_sale_estimate,
             "method": confidence,
