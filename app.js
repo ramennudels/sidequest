@@ -29,15 +29,17 @@ function getCoverUrl(deal) {
   if (deal.header_image && deal.header_image.includes("/steam/apps/")) {
     return deal.header_image;
   }
-  return `https://steamstatic.com{deal.app_id}/header.jpg`;
+  return "https://steamstatic.com" + deal.app_id + "/header.jpg";
 }
+
 
 function handleCoverError(img, appId, title) {
   const step = parseInt(img.dataset.fallbackStep || "0", 10);
-  const fallbacks = [
-    `https://steamstatic.com{appId}/capsule_616x353.jpg`,
-    `https://steamstatic.com{appId}/capsule_616x353.jpg`,
-  ];
+const fallbacks = [
+  "https://steamstatic.com" + appId + "/header.jpg",
+  "https://steamstatic.com" + appId + "/capsule_616x353.jpg"
+];
+
 
   if (step < fallbacks.length) {
     img.dataset.fallbackStep = String(step + 1);
