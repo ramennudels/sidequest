@@ -1,4 +1,4 @@
-const API_BASE = "https://sidequest-0so9.onrender.com";
+const API_BASE = "https://onrender.com";
 let allDeals = [];
 let activeTab = "all";
 
@@ -25,10 +25,16 @@ function setTab(tabName, btnEl) {
   renderStorefront();
 }
 
+function getCoverUrl(deal) {
+  if (deal.header_image && deal.header_image.includes("/steam/apps/")) {
+    return deal.header_image;
+  }
+  return `https://steamstatic.com{deal.app_id}/header.jpg`;
+}
+
 function handleCoverError(img, appId, title) {
   const step = parseInt(img.dataset.fallbackStep || "0", 10);
   const fallbacks = [
-    `https://steamstatic.com{appId}/header.jpg`,
     `https://steamstatic.com{appId}/capsule_616x353.jpg`,
     `https://steamstatic.com{appId}/capsule_616x353.jpg`,
   ];
@@ -56,7 +62,6 @@ function handleCoverError(img, appId, title) {
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
 
-
 function escapeAttr(str) {
   return (str || "").replace(/'/g, "").replace(/"/g, "");
 }
@@ -82,7 +87,6 @@ async function loadDeals() {
     statusEl.innerHTML = `<span style="color:#ef4444;font-weight:700;">Backend offline</span> — Check Render server status or refresh in 30 seconds.`;
   }
 }
-
 function renderStorefront() {
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
   const sellerType = document.getElementById("sellerFilter").value;
@@ -128,7 +132,7 @@ function renderStorefront() {
       <div class="carved-stone hero-spotlight" onclick="openDealModal(${deal.app_id})">
         <div class="hero-img-wrap">
           <span class="quest-ribbon">🔥 TOP FEATURED DEAL</span>
-          <img src="${deal.header_image}" alt="${escapeAttr(deal.title)}" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
+          <img src="${getCoverUrl(deal)}" alt="${escapeAttr(deal.title)}" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
         </div>
         <div class="hero-info">
           <div>
@@ -167,7 +171,7 @@ function renderStorefront() {
     container.className = "aks-list";
     container.innerHTML = gridItems.map(({ deal, bestOffer }) => `
       <div class="carved-stone aks-row" onclick="openDealModal(${deal.app_id})">
-        <img src="${deal.header_image}" alt="${escapeAttr(deal.title)}" loading="lazy" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
+        <img src="${getCoverUrl(deal)}" alt="${escapeAttr(deal.title)}" loading="lazy" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
         <div>
           <div style="font-weight:700;font-size:16px;margin-bottom:6px;">${deal.title}</div>
           <div class="badge-row" style="margin-bottom:0;">
@@ -186,7 +190,7 @@ function renderStorefront() {
     container.className = "deals-grid";
     container.innerHTML = gridItems.map(({ deal, bestOffer }) => `
       <div class="carved-stone game-card" onclick="openDealModal(${deal.app_id})">
-        <img src="${deal.header_image}" alt="${escapeAttr(deal.title)}" loading="lazy" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
+        <img src="${getCoverUrl(deal)}" alt="${escapeAttr(deal.title)}" loading="lazy" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
         <div class="card-content">
           <div>
             <div class="card-title">${deal.title}</div>
@@ -280,7 +284,7 @@ async function openDealModal(appId) {
 
     body.innerHTML = `
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
-        <img src="${deal.header_image}" alt="${escapeAttr(deal.title)}" style="width:180px;border-radius:8px;border:1px solid var(--border-subtle);" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
+        <img src="${getCoverUrl(deal)}" alt="${escapeAttr(deal.title)}" style="width:180px;border-radius:8px;border:1px solid var(--border-subtle);" onerror="handleCoverError(this, ${deal.app_id}, '${escapeAttr(deal.title)}')" />
         <div>
           <h2 style="font-size:22px;font-weight:800;margin-bottom:6px;">${deal.title}</h2>
           <p style="font-size:13px;color:var(--text-secondary);">
@@ -317,7 +321,6 @@ async function openDealModal(appId) {
     body.innerHTML = `<p style="color:#ef4444;">Failed to load offer details.</p>`;
   }
 }
-
 function closeModal() {
   document.getElementById("dealModal").classList.remove("open");
 }
