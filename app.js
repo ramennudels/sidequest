@@ -32,24 +32,47 @@ function getCoverUrl(deal) {
   return "https://steamstatic.com" + deal.app_id + "/header.jpg";
 }
 
-
 function handleCoverError(img, appId, title) {
   const step = parseInt(img.dataset.fallbackStep || "0", 10);
-const fallbacks = [
-  "https://steamstatic.com" + appId + "/header.jpg",
-  "https://steamstatic.com" + appId + "/capsule_616x353.jpg"
-];
+  const fallbacks = [
+    "https://steamstatic.com" + appId + "/header.jpg",
+    "https://steamstatic.com" + appId + "/capsule_616x353.jpg"
+  ];
 
-      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#1a1d26"/>
-        <stop offset="100%" stop-color="#090a0e"/>
-      </linearGradient>
-    </defs>
-    <rect width="460" height="215" fill="url(#bg)"/>
-    <rect x="1" y="1" width="458" height="213" fill="none" stroke="#ef4444" stroke-width="2" stroke-opacity="0.5"/>
-    <text x="230" y="96" fill="#ef4444" font-family="Inter, sans-serif" font-size="14" font-weight="800" text-anchor="middle" letter-spacing="3">🔥 SIDEQUEST</text>
-    <text x="230" y="128" fill="#f8fafc" font-family="Inter, sans-serif" font-size="18" font-weight="700" text-anchor="middle">${safeTitle.slice(0, 34)}</text>
-const svg = `<svg xmlns="http://w3.org" width="460" height="215" viewBox="0 0 460 215">
+  if (step < fallbacks.length) {
+    img.dataset.fallbackStep = String(step + 1);
+    img.src = fallbacks[step];
+    return;
+  }
+
+  img.onerror = null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 460;
+  canvas.height = 215;
+  const ctx = canvas.getContext("2d");
+
+  const grad = ctx.createLinearGradient(0, 0, 460, 215);
+  grad.addColorStop(0, "#1a1d26");
+  grad.addColorStop(1, "#090a0e");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 460, 215);
+
+  ctx.strokeStyle = "#ef4444";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(1.5, 1.5, 457, 212);
+
+  ctx.fillStyle = "#ef4444";
+  ctx.font = "800 14px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("🔥 SIDEQUEST", 230, 92);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "700 18px Inter, sans-serif";
+  ctx.fillText((title || "Sidequest Deal").slice(0, 32), 230, 126);
+
+  img.src = canvas.toDataURL("image/png");
+}
+
   img.onerror = null;
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
