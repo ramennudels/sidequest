@@ -330,8 +330,9 @@ def analyze_game_deals(app_id: int):
         conn.close()
         return {"error": "Game not tracked yet"}
 
-    title = game_row
-    saved_header = game_row if game_row else f"https://steamstatic.com{app_id}/header.jpg"
+     title = game_row[0]
+    saved_header = game_row[1] if game_row[1] else f"https://steamstatic.com{app_id}/header.jpg"
+
 
     cursor.execute(
         "SELECT store, code, discount_percent, min_spend FROM store_vouchers WHERE active = 1"
@@ -387,9 +388,9 @@ def analyze_game_deals(app_id: int):
             "store_url": final_url,
             "last_checked": recorded_at[:10],
         })
-
     enriched_offers.sort(key=lambda x: x["price"])
-    cheapest_current = enriched_offers if enriched_offers else None
+    cheapest_current = enriched_offers[0] if enriched_offers else None
+
 
     cursor.execute(
         """
@@ -406,14 +407,15 @@ def analyze_game_deals(app_id: int):
 
     historical_low = (
         {
-            "price": low_row,
-            "store": low_row,
-            "delivery_type": low_row,
-            "date_hit": low_row[:10],
+            "price": low_row[0],
+            "store": low_row[1],
+            "delivery_type": low_row[2],
+            "date_hit": low_row[3][:10],
         }
         if low_row
         else {"price": 0.0, "store": "N/A", "delivery_type": "key", "date_hit": "N/A"}
     )
+
 
     today = datetime.now()
     if cheapest_current and cheapest_current["discount_percent"] > 0:
@@ -466,7 +468,8 @@ def list_all_deals():
     cursor.execute("SELECT app_id FROM games ORDER BY title ASC")
     rows = cursor.fetchall()
     conn.close()
-    return [analyze_game_deals(r) for r in rows]
+    return [analyze_game_deals(r[0]) for r in rows]
+
 
 
 @app.get("/api/deals/{app_id}")
@@ -494,17 +497,16 @@ def get_price_history(app_id: int):
     conn.close()
     return {
         "app_id": app_id,
-        "history": [
+       "history": [
             {
-                "store": r,
-                "store_type": r,
-                "delivery_type": r,
-                "price": r,
-                "date": r[:10],
+                "store": r[0],
+                "store_type": r[1],
+                "delivery_type": r[2],
+                "price": r[3],
+                "date": r[4][:10],
             }
             for r in rows
         ],
-    }
 
 
 @app.post("/api/track/{app_id}")
