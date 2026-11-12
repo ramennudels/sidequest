@@ -72,9 +72,15 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS games (
             app_id INTEGER PRIMARY KEY,
-            title TEXT
+            title TEXT,
+            header_image TEXT DEFAULT ''
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE games ADD COLUMN header_image TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS price_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,6 +123,7 @@ def init_db():
     conn.close()
 
 
+
 def validate_listing(delivery_type: str, raw_listing_name: str = "") -> Optional[str]:
     """Allows 'key' and 'gift' formats. Strictly blocks game accounts."""
     normalized_type = delivery_type.strip().lower()
@@ -132,7 +139,7 @@ def validate_listing(delivery_type: str, raw_listing_name: str = "") -> Optional
 
 
 def fetch_steam_price(app_id: int):
-    url = f"https://store.steampowered.com/api/appdetails?appids={app_id}&cc=us&filters=basic,price_overview"
+    url = f"https://steampowered.com{app_id}&cc=us&filters=basic,price_overview"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -152,12 +159,12 @@ def fetch_steam_price(app_id: int):
 
     return {
         "title": title,
+        "header_image": game_data.get("header_image", ""),
         "price": price_info["final"] / 100.0,
         "discount_percent": price_info["discount_percent"],
         "delivery_type": "key",
-        "store_url": f"https://store.steampowered.com/app/{app_id}/",
+        "store_url": f"https://steampowered.com{app_id}/",
     }
-
 
 def fetch_cheapshark_deals(app_id: int):
     """Fetches live prices across 25+ authorized key stores via CheapShark."""
@@ -256,38 +263,65 @@ def save_price_snapshot(
 
 
 def log_full_game_snapshot(app_id: int):
-    latest_steam = fetch_steam_price(app_id)
-    if not latest_steam:
+    steam_info = fetch_steam_price(app_id)
+    if not steam_info:
         return None
 
-    title = latest_steam["title"]
-    save_price_snapshot(
-        app_id=app_id,
-        title=title,
-        store="Steam",
-        price=latest_steam["price"],
-        discount_percent=latest_steam["discount_percent"],
-        delivery_type="key",
-        store_type="Official Store",
-        region="GLOBAL",
-        store_url=latest_steam["store_url"],
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    title = steam_info["title"]
+    header_image = steam_info.get("header_image", "")
+    cursor.execute(
+        "INSERT OR REPLACE INTO games (app_id, title, header_image) VALUES (?, ?, ?)",
+        (app_id, title, header_image),
     )
 
-    official_deals = fetch_cheapshark_deals(app_id)
-    for deal in official_deals:
-        save_price_snapshot(
-            app_id=app_id,
-            title=title,
-            store=deal["store"],
-            price=deal["price"],
-            discount_percent=deal["discount_percent"],
-            delivery_type=deal["delivery_type"],
-            store_type=deal["store_type"],
-            region=deal["region"],
-            store_url=deal["store_url"],
+    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        """
+        INSERT INTO price_history
+        (app_id, store, store_type, delivery_type, region, price, discount_percent, store_url, recorded_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            app_id,
+            "Steam",
+            "Official Store",
+            "key",
+            "GLOBAL",
+            steam_info["price"],
+            steam_info["discount_percent"],
+            steam_info["store_url"],
+            now_iso,
+        ),
+    )
+
+    cheapshark_offers = fetch_cheapshark_deals(app_id)
+    for offer in cheapshark_offers:
+        cursor.execute(
+            """
+            INSERT INTO price_history
+            (app_id, store, store_type, delivery_type, region, price, discount_percent, store_url, recorded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                app_id,
+                offer["store"],
+                offer["store_type"],
+                offer["delivery_type"],
+                offer["region"],
+                offer["price"],
+                offer["discount_percent"],
+                offer["store_url"],
+                now_iso,
+            ),
         )
 
-    return latest_steam
+    conn.commit()
+    conn.close()
+    return {"app_id": app_id, "title": title, "stores_logged": 1 + len(cheapshark_offers)}
+
 
 
 def auto_discover_steam_games(limit_per_category: int = 8):
@@ -376,13 +410,14 @@ def analyze_game_deals(app_id: int):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT title FROM games WHERE app_id = ?", (app_id,))
+    cursor.execute("SELECT title, header_image FROM games WHERE app_id = ?", (app_id,))
     game_row = cursor.fetchone()
     if not game_row:
         conn.close()
         return {"error": "Game not tracked yet"}
 
     title = game_row[0]
+    saved_header = game_row[1] or f"https://steamstatic.com{app_id}/header.jpg"
 
     cursor.execute(
         "SELECT store, code, discount_percent, min_spend FROM store_vouchers WHERE active = 1"
@@ -411,23 +446,33 @@ def analyze_game_deals(app_id: int):
 
     enriched_offers = []
     for store, store_type, delivery_type, region, base_price, discount_pct, store_url, recorded_at in raw_offers:
-        final_price, coupon_code, coupon_pct = apply_best_voucher(store, base_price, active_vouchers)
-        resolved_url = build_store_url(store, title, app_id, store_url)
+        best_price = base_price
+        applied_code = None
+        applied_pct = 0
+
+        for v_store, v_code, v_pct, v_min in active_vouchers:
+            if v_store.strip().lower() == store.strip().lower() and base_price >= v_min:
+                discounted = round(base_price * (1 - v_pct / 100.0), 2)
+                if discounted < best_price:
+                    best_price = discounted
+                    applied_code = v_code
+                    applied_pct = v_pct
+
+        final_url = store_url if store_url else build_store_url(store, title, app_id)
         enriched_offers.append({
             "store": store,
-            "store_type": store_type or "Official Store",
+            "store_type": store_type,
             "delivery_type": delivery_type,
-            "region": region or "GLOBAL",
+            "region": region,
             "base_price": base_price,
-            "price": final_price,
+            "price": best_price,
             "discount_percent": discount_pct,
-            "coupon_code": coupon_code,
-            "coupon_discount_percent": coupon_pct,
-            "url": resolved_url,
-            "store_url": resolved_url,
-            "last_checked": recorded_at,
+            "coupon_code": applied_code,
+            "coupon_discount_percent": applied_pct,
+            "url": final_url,
+            "store_url": final_url,
+            "last_checked": recorded_at[:10],
         })
-
 
     enriched_offers.sort(key=lambda x: x["price"])
     cheapest_current = enriched_offers[0] if enriched_offers else None
@@ -442,43 +487,24 @@ def analyze_game_deals(app_id: int):
         """,
         (app_id,),
     )
-    hist_low = cursor.fetchone()
-
-    cursor.execute(
-        """
-        SELECT recorded_at, discount_percent
-        FROM price_history
-        WHERE app_id = ? AND store = 'Steam'
-        ORDER BY recorded_at ASC
-        """,
-        (app_id,),
-    )
-    history = cursor.fetchall()
+    low_row = cursor.fetchone()
     conn.close()
 
-    sale_start_dates = []
-    was_on_sale = False
-    for date_str, discount in history:
-        is_on_sale = discount > 0
-        if is_on_sale and not was_on_sale:
-            sale_start_dates.append(datetime.strptime(date_str, "%Y-%m-%d"))
-        was_on_sale = is_on_sale
+    historical_low = (
+        {
+            "price": low_row[0],
+            "store": low_row[1],
+            "delivery_type": low_row[2],
+            "date_hit": low_row[3][:10],
+        }
+        if low_row
+        else {"price": 0.0, "store": "N/A", "delivery_type": "key", "date_hit": "N/A"}
+    )
 
-    today = datetime.utcnow()
+    today = datetime.now()
     if cheapest_current and cheapest_current["discount_percent"] > 0:
         next_sale_estimate = "On Sale Now"
         confidence = "Active"
-    elif len(sale_start_dates) >= 2:
-        gaps = [
-            (sale_start_dates[i] - sale_start_dates[i - 1]).days
-            for i in range(1, len(sale_start_dates))
-        ]
-        avg_cycle_days = round(sum(gaps) / len(gaps))
-        predicted_date = sale_start_dates[-1] + timedelta(days=avg_cycle_days)
-        while predicted_date < today:
-            predicted_date += timedelta(days=avg_cycle_days)
-        next_sale_estimate = predicted_date.strftime("%Y-%m-%d")
-        confidence = f"Based on ~{avg_cycle_days}-day publisher sale cycle"
     else:
         next_sale_estimate = get_next_seasonal_sale(today)
         confidence = "Estimated via next major Steam Seasonal Sale"
@@ -486,7 +512,7 @@ def analyze_game_deals(app_id: int):
     return {
         "app_id": app_id,
         "title": title,
-        "header_image": f"https://steamstatic.com{app_id}/header.jpg",
+        "header_image": saved_header,
         "cheapest_current": cheapest_current,
         "active_offers": enriched_offers,
         "historical_low": historical_low,
@@ -495,7 +521,6 @@ def analyze_game_deals(app_id: int):
             "method": confidence,
         },
     }
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
