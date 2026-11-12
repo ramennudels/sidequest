@@ -5,7 +5,7 @@ import sqlite3
 import time
 import requests
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,10 +17,10 @@ ALLOWED_DELIVERY_TYPES = {"key", "gift"}
 BLOCKED_KEYWORDS = {"account", "steam account", "shared account", "offline activation", "login"}
 
 STEAM_SEASONAL_SALES = [
-    (3, 14),   # Steam Spring Sale
-    (6, 27),   # Steam Summer Sale
-    (11, 27),  # Steam Autumn Sale
-    (12, 19),  # Steam Winter Sale
+    (3, 14),
+    (6, 27),
+    (11, 27),
+    (12, 19),
 ]
 
 CHEAPSHARK_STORES = {
@@ -106,7 +106,6 @@ def init_db():
             active INTEGER DEFAULT 1
         )
     """)
-    # Seed default store vouchers if empty
     cursor.execute("SELECT COUNT(*) FROM store_vouchers")
     if cursor.fetchone()[0] == 0:
         sample_vouchers = [
@@ -123,9 +122,7 @@ def init_db():
     conn.close()
 
 
-
 def validate_listing(delivery_type: str, raw_listing_name: str = "") -> Optional[str]:
-    """Allows 'key' and 'gift' formats. Strictly blocks game accounts."""
     normalized_type = delivery_type.strip().lower()
     combined_text = f"{normalized_type} {raw_listing_name.strip().lower()}"
 
@@ -136,8 +133,6 @@ def validate_listing(delivery_type: str, raw_listing_name: str = "") -> Optional
         return normalized_type
 
     return None
-
-
 def fetch_steam_price(app_id: int):
     url = f"https://steampowered.com{app_id}&cc=us&filters=basic,price_overview"
     try:
@@ -166,9 +161,9 @@ def fetch_steam_price(app_id: int):
         "store_url": f"https://steampowered.com{app_id}/",
     }
 
+
 def fetch_cheapshark_deals(app_id: int):
-    """Fetches live prices across 25+ authorized key stores via CheapShark."""
-    url = f"https://www.cheapshark.com/api/1.0/deals?steamAppID={app_id}"
+    url = f"https://cheapshark.com{app_id}"
     try:
         response = requests.get(url, timeout=10)
         deals = response.json()
@@ -188,7 +183,7 @@ def fetch_cheapshark_deals(app_id: int):
             sale_price = float(item.get("salePrice", 0))
             savings = round(float(item.get("savings", 0)))
             deal_id = item.get("dealID", "")
-            redirect_url = f"https://www.cheapshark.com/redirect?dealID={deal_id}" if deal_id else ""
+            redirect_url = f"https://cheapshark.com{deal_id}" if deal_id else ""
             if sale_price > 0:
                 results.append({
                     "store": store_name,
@@ -202,64 +197,6 @@ def fetch_cheapshark_deals(app_id: int):
         except (ValueError, TypeError):
             continue
     return results
-
-
-def save_price_snapshot(
-    app_id: int,
-    title: str,
-    store: str,
-    price: float,
-    discount_percent: int,
-    delivery_type: str = "key",
-    store_type: str = "Official Store",
-    region: str = "GLOBAL",
-    store_url: str = "",
-    raw_listing_name: str = "",
-) -> bool:
-    valid_type = validate_listing(delivery_type, raw_listing_name)
-    if not valid_type:
-        return False
-
-    now_iso = datetime.utcnow().strftime("%Y-%m-%d")
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "INSERT OR IGNORE INTO games (app_id, title) VALUES (?, ?)",
-        (app_id, title),
-    )
-
-    cursor.execute(
-        """
-        SELECT id FROM price_history
-        WHERE app_id = ? AND store = ? AND delivery_type = ? AND region = ? AND recorded_at = ?
-        """,
-        (app_id, store, valid_type, region, now_iso),
-    )
-    existing = cursor.fetchone()
-
-    if not existing:
-        cursor.execute(
-            """
-            INSERT INTO price_history
-            (app_id, store, store_type, delivery_type, region, price, discount_percent, store_url, recorded_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (app_id, store, store_type, valid_type, region, price, discount_percent, store_url, now_iso),
-        )
-    else:
-        cursor.execute(
-            """
-            UPDATE price_history
-            SET price = ?, discount_percent = ?, store_type = ?, store_url = ?
-            WHERE id = ?
-            """,
-            (price, discount_percent, store_type, store_url, existing[0]),
-        )
-
-    conn.commit()
-    conn.close()
-    return True
 
 
 def log_full_game_snapshot(app_id: int):
@@ -323,89 +260,66 @@ def log_full_game_snapshot(app_id: int):
     return {"app_id": app_id, "title": title, "stores_logged": 1 + len(cheapshark_offers)}
 
 
-
 def auto_discover_steam_games(limit_per_category: int = 8):
-    url = "https://store.steampowered.com/api/featuredcategories/?cc=us"
+    url = "https://steampowered.com"
     try:
-        response = requests.get(url, timeout=10)
-        data = response.json()
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
     except Exception:
         return []
 
-    discovered_ids = set()
-    for category in ["specials", "top_sellers", "new_releases"]:
-        items = data.get(category, {}).get("items", [])
+    seen_ids = set()
+    for section in ("specials", "top_sellers", "new_releases"):
+        items = data.get(section, {}).get("items", [])
         for item in items[:limit_per_category]:
             app_id = item.get("id")
-            if app_id and item.get("type") == 0:
-                discovered_ids.add(app_id)
+            if app_id and app_id not in seen_ids:
+                seen_ids.add(app_id)
 
-    added_titles = []
-    for app_id in discovered_ids:
+    logged = []
+    for app_id in seen_ids:
         res = log_full_game_snapshot(app_id)
         if res:
-            added_titles.append(res["title"])
-        time.sleep(0.4)
+            logged.append(res)
+        time.sleep(0.25)
+    return logged
 
-    return added_titles
 
-
-from urllib.parse import quote_plus
-
-def get_next_seasonal_sale(from_date: datetime) -> str:
-    year = from_date.year
-    upcoming = []
+def get_next_seasonal_sale(today: datetime) -> str:
+    year = today.year
+    upcoming_dates = []
     for month, day in STEAM_SEASONAL_SALES:
-        candidate = datetime(year, month, day)
-        if candidate < from_date:
-            candidate = datetime(year + 1, month, day)
-        upcoming.append(candidate)
-    next_sale = min(upcoming)
-    return next_sale.strftime("%Y-%m-%d")
+        sale_date = datetime(year, month, day)
+        if sale_date < today:
+            sale_date = datetime(year + 1, month, day)
+        upcoming_dates.append(sale_date)
+    return min(upcoming_dates).strftime("%Y-%m-%d")
 
 
-def apply_best_voucher(store: str, base_price: float, vouchers: list):
-    best_price = base_price
-    applied_code = None
-    voucher_discount = 0
-
-    for v_store, v_code, v_pct, v_min in vouchers:
-        if v_store.strip().lower() == store.strip().lower() and base_price >= v_min:
-            candidate_price = round(base_price * (1 - v_pct / 100.0), 2)
-            if candidate_price < best_price:
-                best_price = candidate_price
-                applied_code = v_code
-                voucher_discount = v_pct
-
-    return best_price, applied_code, voucher_discount
-
-
-def build_store_url(store: str, title: str, app_id: int, raw_url: str) -> str:
-    if raw_url and raw_url.startswith("http"):
-        return raw_url
-
-    q = quote_plus(title)
-    store_key = (store or "").strip().lower()
-
-    templates = {
-        "steam": f"https://steampowered.com{app_id}/",
-        "fanatical": f"https://fanatical.com{q}",
-        "green man gaming": f"https://greenmangaming.com{q}",
-        "humble store": f"https://humblebundle.com{q}",
-        "gog": f"https://gog.com{q}",
-        "gamesplanet": f"https://gamesplanet.com{q}",
-        "gamebillet": f"https://gamebillet.com{q}",
-        "cdkeys": f"https://cdkeys.com{q}",
-        "eneba": f"https://eneba.com{q}",
-        "kinguin": f"https://kinguin.net{q}",
-        "g2a": f"https://g2a.com{q}",
-        "gamivo": f"https://gamivo.com{q}",
-        "instant gaming": f"https://instant-gaming.com{q}",
-    }
-
-    return templates.get(store_key, f"https://steampowered.com{app_id}/")
-
-
+def build_store_url(store: str, title: str, app_id: int) -> str:
+    s = store.strip().lower()
+    q = requests.utils.quote(title)
+    if s == "steam":
+        return f"https://steampowered.com{app_id}/"
+    if "fanatical" in s:
+        return f"https://fanatical.com{q}"
+    if "green man gaming" in s or "gmg" in s:
+        return f"https://greenmangaming.com{q}"
+    if "humble" in s:
+        return f"https://humblebundle.com{q}"
+    if "gog" in s:
+        return f"https://gog.com{q}"
+    if "eneba" in s:
+        return f"https://eneba.com{q}"
+    if "cdkeys" in s or "loaded" in s:
+        return f"https://cdkeys.com{q}"
+    if "gamivo" in s:
+        return f"https://gamivo.com{q}"
+    if "kinguin" in s:
+        return f"https://kinguin.net{q}"
+    if "instant gaming" in s:
+        return f"https://instant-gaming.com{q}"
+    return f"https://google.com{q}+{requests.utils.quote(store)}+pc+key"
 def analyze_game_deals(app_id: int):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -416,8 +330,8 @@ def analyze_game_deals(app_id: int):
         conn.close()
         return {"error": "Game not tracked yet"}
 
-    title = game_row[0]
-    saved_header = game_row[1] or f"https://steamstatic.com{app_id}/header.jpg"
+    title = game_row
+    saved_header = game_row if game_row else f"https://steamstatic.com{app_id}/header.jpg"
 
     cursor.execute(
         "SELECT store, code, discount_percent, min_spend FROM store_vouchers WHERE active = 1"
@@ -475,7 +389,7 @@ def analyze_game_deals(app_id: int):
         })
 
     enriched_offers.sort(key=lambda x: x["price"])
-    cheapest_current = enriched_offers[0] if enriched_offers else None
+    cheapest_current = enriched_offers if enriched_offers else None
 
     cursor.execute(
         """
@@ -492,10 +406,10 @@ def analyze_game_deals(app_id: int):
 
     historical_low = (
         {
-            "price": low_row[0],
-            "store": low_row[1],
-            "delivery_type": low_row[2],
-            "date_hit": low_row[3][:10],
+            "price": low_row,
+            "store": low_row,
+            "delivery_type": low_row,
+            "date_hit": low_row[:10],
         }
         if low_row
         else {"price": 0.0, "store": "N/A", "delivery_type": "key", "date_hit": "N/A"}
@@ -522,19 +436,10 @@ def analyze_game_deals(app_id: int):
         },
     }
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM games")
-    count = cursor.fetchone()[0]
-    conn.close()
-
-    if count == 0:
-        for sample_id in [1091500, 1245620, 1145360]:
-            log_full_game_snapshot(sample_id)
-        auto_discover_steam_games(limit_per_category=5)
     yield
 
 
@@ -543,69 +448,77 @@ app = FastAPI(title="Sidequest Steam Key & Deal Tracker API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def root_status():
+    return {"status": "Sidequest API is online", "deals_endpoint": "/api/deals"}
 
 
 @app.get("/api/deals")
 def list_all_deals():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT app_id FROM games")
-    app_ids = [row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT app_id FROM games ORDER BY title ASC")
+    rows = cursor.fetchall()
     conn.close()
+    return [analyze_game_deals(r) for r in rows]
 
-    return [analyze_game_deals(app_id) for app_id in app_ids]
+
+@app.get("/api/deals/{app_id}")
+def get_game_deal(app_id: int):
+    result = analyze_game_deals(app_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
 
 
-@app.get("/api/deals/{app_id}/history")
+@app.get("/api/history/{app_id}")
 def get_price_history(app_id: int):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT recorded_at, MIN(price)
+        SELECT store, store_type, delivery_type, price, recorded_at
         FROM price_history
-        WHERE app_id = ? AND delivery_type IN ('key', 'gift')
-        GROUP BY recorded_at
+        WHERE app_id = ?
         ORDER BY recorded_at ASC
         """,
         (app_id,),
     )
     rows = cursor.fetchall()
     conn.close()
-    return [{"date": r[0], "price": r[1]} for r in rows]
+    return {
+        "app_id": app_id,
+        "history": [
+            {
+                "store": r,
+                "store_type": r,
+                "delivery_type": r,
+                "price": r,
+                "date": r[:10],
+            }
+            for r in rows
+        ],
+    }
 
 
 @app.post("/api/track/{app_id}")
 def track_new_game(app_id: int):
-    result = log_full_game_snapshot(app_id)
-    if not result:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Could not find paid Steam game for App ID {app_id}",
-        )
+    logged = log_full_game_snapshot(app_id)
+    if not logged:
+        raise HTTPException(status_code=400, detail="Could not fetch Steam price (may be free-to-play or invalid ID).")
     return analyze_game_deals(app_id)
 
 
 @app.post("/api/discover")
 def trigger_discovery():
-    added = auto_discover_steam_games(limit_per_category=6)
-    return {"status": "completed", "synced_count": len(added), "titles": added}
-
-
-@app.get("/api/vouchers")
-def list_vouchers():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, store, code, discount_percent, min_spend FROM store_vouchers WHERE active = 1")
-    rows = cursor.fetchall()
-    conn.close()
-    return [
-        {"id": r[0], "store": r[1], "code": r[2], "discount_percent": r[3], "min_spend": r[4]}
-        for r in rows
-    ]
+    discovered = auto_discover_steam_games(limit_per_category=8)
+    return {"synced_games": len(discovered), "details": discovered}
 
 
 @app.post("/api/vouchers")
@@ -618,86 +531,62 @@ def add_voucher(voucher: VoucherInput):
     )
     conn.commit()
     conn.close()
-    return {"status": "saved", "code": voucher.code.strip().upper()}
+    return {"status": "Voucher saved", "code": voucher.code.strip().upper()}
 
 
-@app.post("/api/offers/ingest")
-def ingest_single_offer(offer: StoreOfferInput):
-    saved = save_price_snapshot(
-        app_id=offer.app_id,
-        title=offer.title,
-        store=offer.store,
-        price=offer.price,
-        discount_percent=offer.discount_percent,
-        delivery_type=offer.delivery_type,
-        store_type=offer.store_type,
-        region=offer.region,
-        store_url=offer.store_url or "",
-        raw_listing_name=offer.raw_listing_name or "",
-    )
-    if not saved:
-        raise HTTPException(
-            status_code=400,
-            detail="Listing rejected: Sidequest only accepts official Steam keys and gifts (accounts are blocked).",
-        )
-    return {"status": "accepted", "deal": analyze_game_deals(offer.app_id)}
-
-
-@app.post("/api/resellers/import-feed")
-async def import_reseller_feed(file: UploadFile = File(...)):
-    """Parses CSV or JSON reseller partner feeds; accepts key/gift and rejects accounts."""
+@app.post("/api/offers/upload")
+async def upload_reseller_feed(file: UploadFile = File(...)):
     content = (await file.read()).decode("utf-8", errors="ignore")
-    filename = (file.filename or "").lower()
-
     records = []
-    if filename.endswith(".json"):
+
+    if file.filename.lower().endswith(".json"):
         parsed = json.loads(content)
         records = parsed if isinstance(parsed, list) else parsed.get("offers", [])
     else:
         reader = csv.DictReader(io.StringIO(content))
         records = list(reader)
 
-    accepted = 0
-    rejected = 0
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    imported = 0
+    blocked = 0
 
     for row in records:
+        delivery = str(row.get("delivery_type", ""))
+        raw_name = str(row.get("raw_listing_name", row.get("title", "")))
+        valid_type = validate_listing(delivery, raw_name)
+        if not valid_type:
+            blocked += 1
+            continue
+
         try:
-            app_id = int(row.get("app_id", 0))
+            app_id = int(row["app_id"])
             title = str(row.get("title", f"App {app_id}")).strip()
-            store = str(row.get("store", "Key Reseller")).strip()
+            store = str(row["store"]).strip()
             store_type = str(row.get("store_type", "Key Reseller")).strip()
-            price = float(row.get("price", 0))
-            discount_percent = int(float(row.get("discount_percent", 0)))
-            delivery_type = str(row.get("delivery_type", "key")).strip()
-            region = str(row.get("region", "GLOBAL")).strip()
+            region = str(row.get("region", "GLOBAL")).strip().upper()
+            price = float(row["price"])
+            discount_pct = int(float(row.get("discount_percent", 0)))
             store_url = str(row.get("store_url", "")).strip()
-            raw_name = str(row.get("raw_listing_name", title)).strip()
+        except (KeyError, ValueError, TypeError):
+            continue
 
-            if app_id <= 0 or price <= 0:
-                rejected += 1
-                continue
+        cursor.execute(
+            "INSERT OR IGNORE INTO games (app_id, title, header_image) VALUES (?, ?, ?)",
+            (app_id, title, ""),
+        )
+        cursor.execute(
+            """
+            INSERT INTO price_history
+            (app_id, store, store_type, delivery_type, region, price, discount_percent, store_url, recorded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (app_id, store, store_type, valid_type, region, price, discount_pct, store_url, now_iso),
+        )
+        imported += 1
 
-            saved = save_price_snapshot(
-                app_id=app_id,
-                title=title,
-                store=store,
-                price=price,
-                discount_percent=discount_percent,
-                delivery_type=delivery_type,
-                store_type=store_type,
-                region=region,
-                store_url=store_url,
-                raw_listing_name=raw_name,
-            )
-            if saved:
-                accepted += 1
-            else:
-                rejected += 1
-        except Exception:
-            rejected += 1
-
-    return {
-        "status": "completed",
-        "accepted_offers": accepted,
-        "rejected_accounts_or_invalid": rejected,
-    }
+    conn.commit()
+    conn.close()
+    return {"imported": imported, "blocked_accounts": blocked}
