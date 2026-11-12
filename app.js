@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://sidequest-0so9.onrender.com";
 let allDeals = [];
 let activeTab = "all";
 
