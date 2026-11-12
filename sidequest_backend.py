@@ -505,16 +505,6 @@ def analyze_game_deals(app_id: int):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM games")
-    count = cursor.fetchone()[0]
-    conn.close()
-
-    if count == 0:
-        for sample_id in [1091500, 1245620, 1145360]:
-            log_full_game_snapshot(sample_id)
-        auto_discover_steam_games(limit_per_category=5)
     yield
 
 
@@ -523,8 +513,10 @@ app = FastAPI(title="Sidequest Steam Key & Deal Tracker API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+
 )
 
 
