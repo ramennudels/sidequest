@@ -39,6 +39,7 @@ function handleCoverError(img, appId, title) {
     "https://steamstatic.com" + appId + "/capsule_616x353.jpg"
   ];
 
+
   if (step < fallbacks.length) {
     img.dataset.fallbackStep = String(step + 1);
     img.src = fallbacks[step];
@@ -292,7 +293,7 @@ async function openDealModal(appId) {
     if (!deal) throw new Error("Deal not found");
 
     const rows = (deal.active_offers || []).map((o) => {
-      const targetUrl = o.url || o.store_url || "https://steampowered.com" + deal.app_id + "/";
+const targetUrl = o.url || o.store_url || "https://steampowered.com" + deal.app_id + "/";
       return `
         <tr>
           <td><strong>${o.store}</strong><br><span style="font-size:11px;color:var(--text-secondary);">${o.store_type}</span></td>
