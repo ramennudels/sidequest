@@ -331,7 +331,7 @@ def analyze_game_deals(app_id: int):
         return {"error": "Game not tracked yet"}
 
      title = game_row[0]
-    saved_header = game_row[1] if game_row[1] else f"https://steamstatic.com{app_id}/header.jpg"
+saved_header = game_row[1] if game_row[1] else f"https://steamstatic.com{app_id}/header.jpg"
 
 
     cursor.execute(
