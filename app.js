@@ -1,4 +1,4 @@
-const API_BASE = "https://sidequest-0so9.onrender.com";
+const API_BASE = "https://sidequest-0so9.onrender.com/api/deals";
 let allDeals = [];
 let activeTab = "all";
 
